@@ -169,7 +169,6 @@
 ;
 ;-
 
-
 FUNCTION nu2lam, nu             ;[in Hz]
    return, 299792458./nu*1e-10  ;[in Angstroem]
 END
@@ -564,22 +563,36 @@ FUNCTION ferengi_downscale, im_lo, z_lo, z_hi, p_lo, p_hi, $
    return, frebin(im_lo, nx_hi, ny_hi, /total)*flux_ratio*evo_fact
 END
 
+FUNCTION centroid, array
+  s = Size(array, /Dimensions)
+  totalMass = Total(array)
+  xcm = Total( Total(array, 2) * Indgen(s[0]) ) / totalMass
+  ycm = Total( Total(array, 1) * Indgen(s[1]) ) / totalMass                                                                        
+  RETURN, [xcm, ycm]
+END
+
 FUNCTION ferengi_odd_n_square, psf0, centre=centre
 ;make the input PSF array square, the number of pixels along each axis
 ;odd and centre the result
 ;centre: central position (do not centre using Gauss-Fit)
+   ;print, 'In FUNCTION ferengi_odd_n_square' ;DEBUG
    psf = psf0
 
 ;resize to odd number of pixels
    sz = size(psf)
+   ;print, 'Original size:', sz[1], sz[2] ;DEBUG
    IF (sz[1]+1) MOD 2 THEN psf = [psf, fltarr(1, sz[2])]
    sz = size(psf)
    IF (sz[2]+1) MOD 2 THEN psf = [[psf], [fltarr(sz[1])]]
 
 ;make array square
    sz = size(psf)
+   ;print, 'Odd size:', sz[1], sz[2] ;DEBUG
    IF sz[1] GT sz[2] THEN psf = [[psf], [fltarr(sz[1], sz[1]-sz[2])]]
    IF sz[2] GT sz[1] THEN psf = [psf, fltarr(sz[2]-sz[1], sz[2])]
+
+   sz = size(psf) ; DEBUG
+   ;print, 'Square size:', sz[1], sz[2] ;DEBUG
 
 ;centre array
    IF n_elements(centre) EQ 2 THEN BEGIN
@@ -601,9 +614,21 @@ FUNCTION ferengi_odd_n_square, psf0, centre=centre
             dum = gauss2dfit(transpose([transpose([psf, psf, psf]*0), $
                                         transpose([psf*0, psf, psf*0]), $
                                         transpose([psf, psf, psf]*0)]), par)
+            sigma = par[2:3]
             shft = sz/2-par[4:5]+sz
-            IF abs(shft[0]) LT 0.001 THEN shft[0] = 0
-            IF abs(shft[1]) LT 0.001 THEN shft[1] = 0
+            ;print, 'Sigma of PSF (pixels):', sigma ;DEBUG
+            ;print, 'Required shift from Gaussian:', shft ;DEBUG
+            c = centroid(psf)
+            cshft = (sz/2)-c
+            ;print, 'Required shift from centroid:', cshft ;DEBUG
+            IF abs(shft[0]) GE sz[0]/2 OR abs(shft[1]) GE sz[1]/2 OR $
+               sigma[0] LE 0 OR sigma[1] LE 0 OR $
+               sigma[0] GE sz[0]/8 OR sigma[1] GE sz[1]/8 THEN BEGIN
+               print, 'Warning: psf centering fit failed, using centroid!'
+               shft = cshft
+            ENDIF 
+            IF abs(shft[0]) LT 0.01 THEN shft[0] = 0
+            IF abs(shft[1]) LT 0.01 THEN shft[1] = 0
             IF total(abs(shft)) GT 0 THEN psf = sshift2d(psf, shft)
          END
       ENDCASE
@@ -623,7 +648,9 @@ FUNCTION ferengi_transformation_psf, psf_s0, psf_c0, z_lo, z_hi, p_lo, p_hi, $
   psf_c = psf_c0
 
 ;make size odd & make square & centre for both psfs
+  ;print, 'fonsing psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
+  ;print, 'fonsing psf_c' ;DEBUG
   psf_c = ferengi_odd_n_square(psf_c)
 
   d_lo = lumdist(z_lo, /silent)
@@ -636,18 +663,22 @@ FUNCTION ferengi_transformation_psf, psf_s0, psf_c0, z_lo, z_hi, p_lo, p_hi, $
     psf_s = [[psf_s], [fltarr((size(psf_s))[1], 2)]]
     outsz = round((d_lo/d_hi*(1.+z_hi)^2/(1.+z_lo)^2*p_lo/p_hi)[0]*(insz+add))
     IF add GT insz*3 THEN message, 'enlarging PSF failed!'
-  ENDWHILE
+ ENDWHILE
+  ;print, 'fonsing new psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
 
 ;downscale the local PSF
   psf_s = ferengi_downscale(psf_s, z_lo, z_hi, p_lo, p_hi, /nofluxscl)
 
 ;make size the same
+  ;print, 'fonsing downscaled psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
   ferengi_make_psf_same, psf_c, psf_s
 
 ;make size odd & make square & centre for both psfs
+  ;print, 'fonsing newest psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
+  ;print, 'fonsing newest psf_c' ;DEBUG
   psf_c = ferengi_odd_n_square(psf_c)
 
 ;normalise
@@ -922,6 +953,7 @@ nopixels:
    psf_t = ferengi_transformation_psf(psf_lo, psf_hi, zlo, zhi, scllo, sclhi, $
                                       /same)
 
+   ;print, 'fonsing reconstructed psf' ;DEBUG
    recon = ferengi_odd_n_square(convolve(psf_lo, psf_t))
 
 ;get rid of potential bad pixels around the edges of the PSF
