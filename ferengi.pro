@@ -658,7 +658,7 @@ FUNCTION ferengi_transformation_psf, psf_s0, psf_c0, z_lo, z_hi, p_lo, p_hi, $
   insz = (size(psf_s))[1]
   add = 0
   outsz = round((d_lo/d_hi*(1.+z_hi)^2/(1.+z_lo)^2*p_lo/p_hi)[0]*(insz+add))
-  WHILE outsz MOD 2 EQ 0 DO BEGIN
+  WHILE (outsz MOD 2 EQ 0 or outsz le 2) DO BEGIN
     add += 2
     psf_s = [[psf_s], [fltarr((size(psf_s))[1], 2)]]
     outsz = round((d_lo/d_hi*(1.+z_hi)^2/(1.+z_lo)^2*p_lo/p_hi)[0]*(insz+add))
