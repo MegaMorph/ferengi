@@ -575,24 +575,19 @@ FUNCTION ferengi_odd_n_square, psf0, centre=centre
 ;make the input PSF array square, the number of pixels along each axis
 ;odd and centre the result
 ;centre: central position (do not centre using Gauss-Fit)
-   ;print, 'In FUNCTION ferengi_odd_n_square' ;DEBUG
    psf = psf0
 
 ;resize to odd number of pixels
    sz = size(psf)
-   ;print, 'Original size:', sz[1], sz[2] ;DEBUG
    IF (sz[1]+1) MOD 2 THEN psf = [psf, fltarr(1, sz[2])]
    sz = size(psf)
    IF (sz[2]+1) MOD 2 THEN psf = [[psf], [fltarr(sz[1])]]
 
 ;make array square
    sz = size(psf)
-   ;print, 'Odd size:', sz[1], sz[2] ;DEBUG
    IF sz[1] GT sz[2] THEN psf = [[psf], [fltarr(sz[1], sz[1]-sz[2])]]
    IF sz[2] GT sz[1] THEN psf = [psf, fltarr(sz[2]-sz[1], sz[2])]
 
-   sz = size(psf) ; DEBUG
-   ;print, 'Square size:', sz[1], sz[2] ;DEBUG
 
 ;centre array
    IF n_elements(centre) EQ 2 THEN BEGIN
@@ -616,11 +611,8 @@ FUNCTION ferengi_odd_n_square, psf0, centre=centre
                                         transpose([psf, psf, psf]*0)]), par)
             sigma = par[2:3]
             shft = sz/2-par[4:5]+sz
-            ;print, 'Sigma of PSF (pixels):', sigma ;DEBUG
-            ;print, 'Required shift from Gaussian:', shft ;DEBUG
             c = centroid(psf)
             cshft = (sz/2)-c
-            ;print, 'Required shift from centroid:', cshft ;DEBUG
             IF abs(shft[0]) GE sz[0]/2 OR abs(shft[1]) GE sz[1]/2 OR $
                sigma[0] LE 0 OR sigma[1] LE 0 OR $
                sigma[0] GE sz[0]/8 OR sigma[1] GE sz[1]/8 THEN BEGIN
@@ -648,9 +640,7 @@ FUNCTION ferengi_transformation_psf, psf_s0, psf_c0, z_lo, z_hi, p_lo, p_hi, $
   psf_c = psf_c0
 
 ;make size odd & make square & centre for both psfs
-  ;print, 'fonsing psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
-  ;print, 'fonsing psf_c' ;DEBUG
   psf_c = ferengi_odd_n_square(psf_c)
 
   d_lo = lumdist(z_lo, /silent)
@@ -664,21 +654,17 @@ FUNCTION ferengi_transformation_psf, psf_s0, psf_c0, z_lo, z_hi, p_lo, p_hi, $
     outsz = round((d_lo/d_hi*(1.+z_hi)^2/(1.+z_lo)^2*p_lo/p_hi)[0]*(insz+add))
     IF add GT insz*3 THEN message, 'enlarging PSF failed!'
  ENDWHILE
-  ;print, 'fonsing new psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
 
 ;downscale the local PSF
   psf_s = ferengi_downscale(psf_s, z_lo, z_hi, p_lo, p_hi, /nofluxscl)
 
 ;make size the same
-  ;print, 'fonsing downscaled psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
   ferengi_make_psf_same, psf_c, psf_s
 
 ;make size odd & make square & centre for both psfs
-  ;print, 'fonsing newest psf_s' ;DEBUG
   psf_s = ferengi_odd_n_square(psf_s)
-  ;print, 'fonsing newest psf_c' ;DEBUG
   psf_c = ferengi_odd_n_square(psf_c)
 
 ;normalise
@@ -953,7 +939,6 @@ nopixels:
    psf_t = ferengi_transformation_psf(psf_lo, psf_hi, zlo, zhi, scllo, sclhi, $
                                       /same)
 
-   ;print, 'fonsing reconstructed psf' ;DEBUG
    recon = ferengi_odd_n_square(convolve(psf_lo, psf_t))
 
 ;get rid of potential bad pixels around the edges of the PSF
