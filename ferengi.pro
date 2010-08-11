@@ -567,7 +567,7 @@ FUNCTION centroid, array
   s = Size(array, /Dimensions)
   totalMass = Total(array)
   xcm = Total( Total(array, 2) * Indgen(s[0]) ) / totalMass
-  ycm = Total( Total(array, 1) * Indgen(s[1]) ) / totalMass                                                                        
+  ycm = Total( Total(array, 1) * Indgen(s[1]) ) / totalMass
   RETURN, [xcm, ycm]
 END
 
@@ -587,7 +587,6 @@ FUNCTION ferengi_odd_n_square, psf0, centre=centre
    sz = size(psf)
    IF sz[1] GT sz[2] THEN psf = [[psf], [fltarr(sz[1], sz[1]-sz[2])]]
    IF sz[2] GT sz[1] THEN psf = [psf, fltarr(sz[2]-sz[1], sz[2])]
-
 
 ;centre array
    IF n_elements(centre) EQ 2 THEN BEGIN
@@ -653,7 +652,7 @@ FUNCTION ferengi_transformation_psf, psf_s0, psf_c0, z_lo, z_hi, p_lo, p_hi, $
     psf_s = [[psf_s], [fltarr((size(psf_s))[1], 2)]]
     outsz = round((d_lo/d_hi*(1.+z_hi)^2/(1.+z_lo)^2*p_lo/p_hi)[0]*(insz+add))
     IF add GT insz*3 THEN message, 'enlarging PSF failed!'
- ENDWHILE
+  ENDWHILE
   psf_s = ferengi_odd_n_square(psf_s)
 
 ;downscale the local PSF
