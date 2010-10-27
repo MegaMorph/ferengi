@@ -955,10 +955,10 @@ nopixels:
    im_ds = ferengi_convolve_plus_noise(im_ds/thi, psf_t, sky, thi, $
                                        border_clip = 3, extend = extend)
 
+write_out:
 ; optionally output as counts, rather than counts/sec
    IF keyword_set(countsout) THEN im_ds *= thi
 
-write_out:
    fits_write, im_out_file, im_ds
    fits_write, psf_out_file, recon
 
