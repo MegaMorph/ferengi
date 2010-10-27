@@ -16,7 +16,7 @@
 ;            lambda_lo, filter_lo, zlo, scllo, zplo, tlo, $
 ;            lambda_hi, filter_hi, zhi, sclhi, zphi, thi, $
 ;            im_out_file, psf_out_file, $
-;            noflux=noflux, evo=evo, noconv=noconv
+;            noflux=noflux, evo=evo, noconv=noconv, countsout=countsout
 ;
 ; INPUTS:
 ;   sky = high redshift sky background image
@@ -84,7 +84,10 @@
 ;         uncrorrected magnitude), i.e. evo=-1 essentially brightens
 ;         the galaxy by 1 magnitude at redshift z=1
 ;   /noconv - the output image is not convolved with the output PSF,
-;             and no noise is added. This option is used for testing only.
+;             and no noise is added. This option is used for testing
+;             only.
+;   /countsout - output image in counts (i.e. same as the input image)
+;                rather than counts/sec
 ;
 ; OUTPUTS: 
 ;   im_out_file = filename (including path) for the output image
@@ -719,7 +722,7 @@ PRO ferengi, sky, im, imerr, psflo, err0_mag, psfhi, $
              lambda_lo, filter_lo, zlo, scllo, zplo, tlo, $
              lambda_hi, filter_hi, zhi, sclhi, zphi, thi, $
              im_out_file, psf_out_file, $
-             noflux=noflux, evo=evo, noconv=noconv
+             noflux=noflux, evo=evo, noconv=noconv, countsout=countsout
 
 ;the size of the output sky image
    sz_sky = (size(sky))[1:2]
@@ -909,6 +912,7 @@ nopixels:
       idx = where(abs(im_ds) GT 10*sig, ct)
       IF ct GT 0 THEN BEGIN
          fit = robust_linefit(abs(bg[idx]), abs(im_ds[idx]), /bisect)
+         if (fit EQ 0) THEN message, 'Fit failed: not enough sky in image?'
          delta = abs(im_ds[idx])-(fit[0]+fit[1]*abs(bg[idx]))
          resistant_mean, delta, 3, m, sig, nrej
          sig *= sqrt(n_elements(im_ds)-1-nrej)
@@ -950,6 +954,9 @@ nopixels:
 ;convolve the high redshift image with the transformation PSF
    im_ds = ferengi_convolve_plus_noise(im_ds/thi, psf_t, sky, thi, $
                                        border_clip = 3, extend = extend)
+
+; optionally output as counts, rather than counts/sec
+   IF keyword_set(countsout) THEN im_ds *= thi
 
 write_out:
    fits_write, im_out_file, im_ds
