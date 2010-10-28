@@ -912,7 +912,7 @@ nopixels:
       idx = where(abs(im_ds) GT 10*sig, ct)
       IF ct GT 0 THEN BEGIN
          fit = robust_linefit(abs(bg[idx]), abs(im_ds[idx]), /bisect)
-         if (nelements(fit) EQ 1) THEN message, 'Fit failed: not enough sky in image?'
+         if (n_elements(fit) EQ 1) THEN message, 'Fit failed: not enough sky in image?'
          delta = abs(im_ds[idx])-(fit[0]+fit[1]*abs(bg[idx]))
          resistant_mean, delta, 3, m, sig, nrej
          sig *= sqrt(n_elements(im_ds)-1-nrej)
