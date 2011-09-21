@@ -16,7 +16,8 @@
 ;            lambda_lo, filter_lo, zlo, scllo, zplo, tlo, $
 ;            lambda_hi, filter_hi, zhi, sclhi, zphi, thi, $
 ;            im_out_file, psf_out_file, $
-;            noflux=noflux, evo=evo, noconv=noconv, countsout=countsout
+;            noflux=noflux, evo=evo, noconv=noconv, nonoise=nonoise,
+;            nokcorr=nokcorr, countsout=countsout
 ;
 ; INPUTS:
 ;   sky = high redshift sky background image
@@ -83,9 +84,12 @@
 ;         evolutionary correction in magnitudes, z: redshift, M:
 ;         uncrorrected magnitude), i.e. evo=-1 essentially brightens
 ;         the galaxy by 1 magnitude at redshift z=1
-;   /noconv - the output image is not convolved with the output PSF,
-;             and no noise is added. This option is used for testing
-;             only.
+;   /noconv - the output image is not convolved with the output PSF.
+;   /nonoise - no additional noise is added to the output image and it
+;              is not placed on the sky image.
+;   /nokcorr - no kcorrection is applied, although kcorrect is still
+;              used to account for any differences in the input and
+;              output bandpasses.
 ;   /countsout - output image in counts (i.e. same as the input image)
 ;                rather than counts/sec
 ;
@@ -681,10 +685,9 @@ FUNCTION ferengi_transformation_psf, psf_s0, psf_c0, z_lo, z_hi, p_lo, p_hi, $
   return, ferengi_deconvolve(psf_c, psf_s)
 END
 
-FUNCTION ferengi_convolve_plus_noise, im, psf, sky, exptime, $
-                                      nonoise = nonoise, $
-                                      border_clip = border_clip, $
-                                      extend = extend
+FUNCTION ferengi_convolve, im, psf, $
+                           border_clip = border_clip, $
+                           extend = extend
 ;clip the borders of the PSF? If yes, the input psf is changed!
    IF NOT keyword_set(border_clip) THEN border_clip = 0
    sz_psf = (size(psf))[1:2]
@@ -707,13 +710,17 @@ FUNCTION ferengi_convolve_plus_noise, im, psf, sky, exptime, $
    IF NOT keyword_set(extend) THEN $
     out = out[sz_psf[0]:sz_out[0]-1-sz_psf[0], sz_psf[1]:sz_out[1]-1-sz_psf[1]]
 
+   return, out
+END
+
+FUNCTION ferengi_plus_noise, im, sky, exptime
+   out = im
 ;add poisson noise to the image and add the sky
    sz_out = (size(out))[1:2]
 
 ;the output image is in counts/sec, and so is the sky image
-   IF NOT keyword_set(nonoise) THEN $
-    out += sky[0:sz_out[0]-1, 0:sz_out[1]-1]+ $
-           sqrt(abs(out*exptime))*randomn(1, sz_out[0], sz_out[1])/exptime
+   out = out + sky[0:sz_out[0]-1, 0:sz_out[1]-1] + $
+          sqrt(abs(out*exptime))*randomn(1, sz_out[0], sz_out[1])/exptime
 
    return, out
 END
@@ -722,7 +729,8 @@ PRO ferengi, sky, im, imerr, psflo, err0_mag, psfhi, $
              lambda_lo, filter_lo, zlo, scllo, zplo, tlo, $
              lambda_hi, filter_hi, zhi, sclhi, zphi, thi, $
              im_out_file, psf_out_file, $
-             noflux=noflux, evo=evo, noconv=noconv, countsout=countsout
+             noflux=noflux, evo=evo, noconv=noconv, nonoise=nonoise, $
+             nokcorr=nokcorr, countsout=countsout
 
 ;the size of the output sky image
    sz_sky = (size(sky))[1:2]
@@ -878,7 +886,8 @@ PRO ferengi, sky, im, imerr, psflo, err0_mag, psfhi, $
 ;  plot, wavel, vmatrix#coeffs, xrange = [2000., 12000.], /ylog, ystyle = 1
       
 ;calculate a new array of output redshifts
-      z_tmp = fltarr(n_elements(maggies[0, *]))+zhi
+      IF NOT keyword_set(nokcorr) THEN $
+         z_tmp = fltarr(n_elements(maggies[0, *]))+zhi
 
 ;reconstruct magnitudes in a certain filter at a certain redshift
       k_reconstruct_maggies, coeffs, z_tmp, maggies, vmatrix=vmatrix, $
@@ -926,36 +935,39 @@ nopixels:
    im_ds -= ring_sky(im_ds, 50, 15, /nw)
 ;*******************************************************************************
 
-   IF keyword_set(noconv) THEN BEGIN
-      im_ds /= thi
-      recon = psf_lo/total(psf_lo)
-      GOTO, write_out
-   ENDIF
+   im_ds /= thi
 
+   IF keyword_set(noconv) THEN BEGIN
+      recon = psf_lo/total(psf_lo)
+   ELSE BEGIN
 ;the output sky image might be too small to put in the galaxy
-   sz_im_ds = (size(im_ds))[1:2]
-   IF sz_im_ds[0] GT sz_sky[0] OR sz_im_ds[1] GT sz_sky[1] THEN $
-    message, 'sky image not big enough'
+      sz_im_ds = (size(im_ds))[1:2]
+      IF sz_im_ds[0] GT sz_sky[0] OR sz_im_ds[1] GT sz_sky[1] THEN $
+         message, 'sky image not big enough'
 
 ;calculate the transformation PSF
-   psf_hi = psfhi
-   psf_t = ferengi_transformation_psf(psf_lo, psf_hi, zlo, zhi, scllo, sclhi, $
-                                      /same)
-
-   recon = ferengi_odd_n_square(convolve(psf_lo, psf_t))
+      psf_hi = psfhi
+      psf_t = ferengi_transformation_psf(psf_lo, psf_hi, zlo, zhi, scllo, sclhi, $
+                                         /same)
+      
+      recon = ferengi_odd_n_square(convolve(psf_lo, psf_t))
 
 ;get rid of potential bad pixels around the edges of the PSF
-   rem = 3                      ;remove 3 pixels
-   ferengi_clip_edge, rem, recon, clip_also = psf_hi, /norm
-
+      rem = 3                   ;remove 3 pixels
+      ferengi_clip_edge, rem, recon, clip_also = psf_hi, /norm
+      
 ;normalise reconstructed PSF
-   recon /= total(recon)
+      recon /= total(recon)
 
 ;convolve the high redshift image with the transformation PSF
-   im_ds = ferengi_convolve_plus_noise(im_ds/thi, psf_t, sky, thi, $
-                                       border_clip = 3, extend = extend)
+      im_ds = ferengi_convolve(im_ds, psf_t, $
+                               border_clip = 3, extend = extend)
+   ENDIF
 
-write_out:
+; add sky and noise
+   IF NOT keyword_set(nonoise) THEN $
+      im_ds = ferengi_plus_noise(im_ds, sky, thi)
+
 ; optionally output as counts, rather than counts/sec
    IF keyword_set(countsout) THEN im_ds *= thi
 
