@@ -932,8 +932,7 @@ nopixels:
    
 ;*******************************************************************************
 ;subtracting sky here: the user may replace this with his/her own routine
-   sky_level = ring_sky(im_ds, 50, 15, /nw)
-   im_ds -= sky_level
+   im_ds -= ring_sky(im_ds, 50, 15, /nw)
 ;*******************************************************************************
    
    im_ds /= thi
@@ -968,9 +967,12 @@ nopixels:
 ; add sky and noise
    IF NOT keyword_set(nonoise) THEN $
       im_ds = ferengi_plus_noise(im_ds, sky, thi)
-
+   
+   
 ; optionally output as counts, rather than counts/sec
    IF keyword_set(countsout) THEN im_ds *= thi
+
+   sky_level = ring_sky(im_ds, 50, 15, /nw)
 
    fits_write, im_out_file, im_ds
    fits_write, psf_out_file, recon
