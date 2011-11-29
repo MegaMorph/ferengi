@@ -730,7 +730,7 @@ PRO ferengi, sky, im, imerr, psflo, err0_mag, psfhi, $
              lambda_hi, filter_hi, zhi, sclhi, zphi, thi, $
              im_out_file, psf_out_file, $
              noflux=noflux, evo=evo, noconv=noconv, nonoise=nonoise, $
-             nokcorr=nokcorr, countsout=countsout
+             nokcorr=nokcorr, countsout=countsout, sky_level=sky_level
 
 ;the size of the output sky image
    sz_sky = (size(sky))[1:2]
@@ -932,9 +932,10 @@ nopixels:
    
 ;*******************************************************************************
 ;subtracting sky here: the user may replace this with his/her own routine
-   im_ds -= ring_sky(im_ds, 50, 15, /nw)
+   sky_level = ring_sky(im_ds, 50, 15, /nw)
+   im_ds -= sky_level
 ;*******************************************************************************
-
+   
    im_ds /= thi
 
    IF keyword_set(noconv) THEN BEGIN
