@@ -936,10 +936,10 @@ nopixels:
 ;*******************************************************************************
    
    im_ds /= thi
-
+   
    IF keyword_set(noconv) THEN BEGIN
       recon = psf_lo/total(psf_lo)
-   ELSE BEGIN
+   ENDIF ELSE BEGIN
 ;the output sky image might be too small to put in the galaxy
       sz_im_ds = (size(im_ds))[1:2]
       IF sz_im_ds[0] GT sz_sky[0] OR sz_im_ds[1] GT sz_sky[1] THEN $
@@ -962,7 +962,7 @@ nopixels:
 ;convolve the high redshift image with the transformation PSF
       im_ds = ferengi_convolve(im_ds, psf_t, $
                                border_clip = 3, extend = extend)
-   ENDIF
+   ENDELSE
 
 ; add sky and noise
    IF NOT keyword_set(nonoise) THEN $
