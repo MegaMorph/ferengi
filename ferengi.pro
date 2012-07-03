@@ -17,7 +17,7 @@
 ;            lambda_hi, filter_hi, zhi, sclhi, zphi, thi, $
 ;            im_out_file, psf_out_file, $
 ;            noflux=noflux, evo=evo, noconv=noconv, nonoise=nonoise,
-;            nokcorr=nokcorr, countsout=countsout
+;            countsout=countsout
 ;
 ; INPUTS:
 ;   sky = high redshift sky background image
@@ -87,11 +87,12 @@
 ;   /noconv - the output image is not convolved with the output PSF.
 ;   /nonoise - no additional noise is added to the output image and it
 ;              is not placed on the sky image.
-;   /nokcorr - no kcorrection is applied, although kcorrect is still
-;              used to account for any differences in the input and
-;              output bandpasses.
 ;   /countsout - output image in counts (i.e. same as the input image)
 ;                rather than counts/sec
+;   for no kcorrection please only provide one band input data, the
+;   code will automatically switch off kcorrect and simply bin and dim
+;   the galaxy image. That also means, this feature can NOT be used to
+;   go from one dataset to the next, as filter-curves willo not be corrected.
 ;
 ; OUTPUTS: 
 ;   im_out_file = filename (including path) for the output image
@@ -730,7 +731,7 @@ PRO ferengi, sky, im, imerr, psflo, err0_mag, psfhi, $
              lambda_hi, filter_hi, zhi, sclhi, zphi, thi, $
              im_out_file, psf_out_file, $
              noflux=noflux, evo=evo, noconv=noconv, nonoise=nonoise, $
-             nokcorr=nokcorr, countsout=countsout, sky_level=sky_level
+             countsout=countsout, sky_level=sky_level
 
 ;the size of the output sky image
    sz_sky = (size(sky))[1:2]
@@ -872,39 +873,38 @@ PRO ferengi, sky, im, imerr, psflo, err0_mag, psfhi, $
       err = sqrt(err0^2+err^2)/wei
 
 ;convert errors from magnitudes 
-      ivar = (2.5/alog(10)/err/double(maggies))^2
-      inf = where(finite(ivar) NE 1, ct)
-      IF ct GT 0 THEN ivar[inf] = max(ivar[where(finite(ivar) EQ 1)])
+          ivar = (2.5/alog(10)/err/double(maggies))^2
+          inf = where(finite(ivar) NE 1, ct)
+          IF ct GT 0 THEN ivar[inf] = max(ivar[where(finite(ivar) EQ 1)])
 
-      z_tmp = fltarr(n_elements(maggies[0, *]))+zlo
+          z_tmp = fltarr(n_elements(maggies[0, *]))+zlo
 
-      print, systime()
+          print, systime()
 ;calculate K-corrections for redshift z=0
-      kcorrect, maggies, ivar, z_tmp, k, $
-                filterlist=filter_lo, rmatrix=rmatrix, zvals=zvals, $
-                lambda=wavel, vmatrix=vmatrix, coeffs=coeffs
+          kcorrect, maggies, ivar, z_tmp, k, $
+            filterlist=filter_lo, rmatrix=rmatrix, zvals=zvals, $
+            lambda=wavel, vmatrix=vmatrix, coeffs=coeffs
 ;  plot, wavel, vmatrix#coeffs, xrange = [2000., 12000.], /ylog, ystyle = 1
-      
+
 ;calculate a new array of output redshifts
-      IF NOT keyword_set(nokcorr) THEN $
-         z_tmp = fltarr(n_elements(maggies[0, *]))+zhi
+          z_tmp = fltarr(n_elements(maggies[0, *]))+zhi
 
 ;reconstruct magnitudes in a certain filter at a certain redshift
-      k_reconstruct_maggies, coeffs, z_tmp, maggies, vmatrix=vmatrix, $
-                             lambda=wavel, filterlist=filter_hi
-      print, systime()
+          k_reconstruct_maggies, coeffs, z_tmp, maggies, vmatrix=vmatrix, $
+            lambda=wavel, filterlist=filter_hi
+          print, systime()
 
 nopixels:
 ;as background choose closest in redshift-space
       bg = (im_ds = im_ds[*, *, filt_i]/(1.+zhi))
 
 ;put in K-corrections
-      IF ngood GT 0 AND good[0] NE -1 THEN im_ds[good] = maggies/(1.+zhi)
+        IF ngood GT 0 AND good[0] NE -1 THEN im_ds[good] = maggies/(1.+zhi)
 
 ;convert image back to cts
       im_ds = maggies2cts(im_ds, thi, zphi)
       bg = maggies2cts(bg, thi, zphi)
-   ENDELSE
+  ENDELSE
 
 ;remove infinite pixels: replace with median (3x3)
    med = median(im_ds, 3)
